@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AZLD Live Bracket</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0F1C14;--bg-panel:#152419;--bg-elevated:#1D3024;--line:#2C4232;
+  --gold:#D9A640;--gold-soft:#E8C77A;--rust:#C2542D;--green:#4C9A63;
+  --text:#F3EFE2;--text-muted:#8FA191;--radius:10px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;}
+.app{max-width:1180px;margin:0 auto;padding:20px 18px 56px;}
+
+/* topbar */
+.topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:18px;}
+.brand-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-soft);margin:0 0 4px;}
+h1{font-family:'Oswald',sans-serif;font-weight:700;font-size:28px;letter-spacing:.01em;margin:0;line-height:1.05;}
+.subtitle{color:var(--text-muted);font-size:13px;margin-top:4px;}
+.topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.status-pill{display:flex;align-items:center;gap:8px;background:var(--bg-panel);border:1px solid var(--line);padding:8px 14px;border-radius:999px;font-size:12px;color:var(--text-muted);white-space:nowrap;}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;}
+.live-dot.error{background:var(--rust);}
+.live-dot.loading{background:var(--gold);animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+.live-dot.live{box-shadow:0 0 0 0 rgba(76,154,99,.6);animation:pulse 1.8s infinite;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(76,154,99,.55);}70%{box-shadow:0 0 0 7px rgba(76,154,99,0);}100%{box-shadow:0 0 0 0 rgba(76,154,99,0);}}
+.settings-btn{background:var(--bg-panel);border:1px solid var(--line);color:var(--text-muted);border-radius:999px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;}
+.settings-btn:hover{border-color:var(--gold-soft);color:var(--text);}
+
+/* tabs */
+.tabs{display:flex;gap:8px;margin-bottom:22px;}
+.tab-btn{font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:.05em;text-transform:uppercase;background:var(--bg-panel);color:var(--text-muted);border:1px solid var(--line);padding:9px 20px;border-radius:8px;cursor:pointer;transition:all .15s ease;}
+.tab-btn.active{background:var(--gold);color:#1A1306;border-color:var(--gold);}
+.tab-btn:hover:not(.active){border-color:var(--gold-soft);color:var(--text);}
+
+/* champion banner */
+.champion-banner{display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,var(--gold) 0%,var(--gold-soft) 100%);color:#1A1306;border-radius:var(--radius);padding:16px 20px;margin-bottom:22px;}
+.champion-banner.pending{background:var(--bg-panel);color:var(--text-muted);border:1px dashed var(--line);}
+.champion-trophy{font-size:26px;}
+.champion-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.75;margin:0 0 2px;}
+.champion-name{font-family:'Oswald',sans-serif;font-weight:700;font-size:20px;margin:0;}
+
+/* bracket */
+.bracket-scroll{overflow-x:auto;padding-bottom:8px;}
+.bracket-wrap{position:relative;min-width:900px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:36px;}
+svg.connectors{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;}
+.connector-path{fill:none;stroke:var(--line);stroke-width:2px;}
+.connector-path.done{stroke:var(--green);stroke-width:2.5px;}
+.round{display:flex;flex-direction:column;}
+.round-label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted);margin:0 0 14px;text-align:center;}
+.round-col{display:flex;flex-direction:column;justify-content:space-around;flex:1;gap:28px;}
+.round-col.sf{gap:0;justify-content:space-around;}
+.round-col.final{justify-content:center;}
+
+/* match card */
+.match{background:var(--bg-panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;position:relative;z-index:1;}
+.match.decided{border-color:var(--green);}
+.match.pending{opacity:.65;}
+.slot{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;gap:8px;border-bottom:1px solid var(--line);}
+.slot:last-of-type{border-bottom:none;}
+.slot.tbd .slot-name{color:var(--text-muted);font-style:italic;}
+.slot.winner{background:rgba(76,154,99,.14);}
+.slot.winner .slot-name{color:var(--green);font-weight:600;}
+.slot-info{display:flex;align-items:center;gap:6px;overflow:hidden;}
+.slot-seed{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);flex-shrink:0;}
+.slot-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.slot-wins{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;flex-shrink:0;color:var(--text-muted);}
+.slot.winner .slot-wins{color:var(--green);}
+
+/* sets row */
+.sets-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line);border-top:1px solid var(--line);}
+.set-cell{background:var(--bg-elevated);padding:7px 6px;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.set-label{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;}
+.set-score{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);display:flex;align-items:center;gap:3px;}
+.set-score.a-wins .sa{color:var(--green);font-weight:700;}
+.set-score.b-wins .sb{color:var(--green);font-weight:700;}
+.set-score.no-data{color:var(--text-muted);}
+.set-sep{color:var(--text-muted);font-size:9px;}
+
+/* setup modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal{background:var(--bg-panel);border:1px solid var(--line);border-radius:16px;padding:28px;max-width:520px;width:100%;}
+.modal h2{font-family:'Oswald',sans-serif;font-weight:700;font-size:22px;margin:0 0 6px;color:var(--gold);}
+.modal p{color:var(--text-muted);font-size:13px;line-height:1.6;margin:0 0 18px;}
+.step{display:flex;gap:12px;margin-bottom:16px;align-items:flex-start;}
+.step-num{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--gold);color:#1A1306;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;margin-top:1px;}
+.step-text{font-size:13px;color:var(--text);line-height:1.5;}
+.step-text code{background:var(--bg-elevated);color:var(--gold-soft);padding:1px 5px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:11px;}
+.modal-input{width:100%;background:var(--bg-elevated);border:1px solid var(--line);border-radius:8px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;padding:10px 14px;outline:none;margin-bottom:4px;}
+.modal-input:focus{border-color:var(--gold);}
+.modal-hint{font-size:11px;color:var(--text-muted);margin:0 0 16px;font-family:'JetBrains Mono',monospace;}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:8px;}
+.btn-primary{background:var(--gold);color:#1A1306;border:none;border-radius:8px;padding:10px 20px;font-family:'Oswald',sans-serif;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.04em;}
+.btn-secondary{background:transparent;color:var(--text-muted);border:1px solid var(--line);border-radius:8px;padding:10px 16px;font-size:13px;cursor:pointer;}
+.btn-secondary:hover{border-color:var(--rust);color:var(--rust);}
+.error-msg{background:rgba(194,84,45,.15);border:1px solid var(--rust);border-radius:6px;color:var(--rust);font-size:12px;padding:8px 12px;margin-bottom:14px;display:none;}
+
+/* empty / error states */
+.state-box{text-align:center;padding:60px 20px;color:var(--text-muted);}
+.state-box .icon{font-size:40px;margin-bottom:12px;}
+.state-box h3{font-family:'Oswald',sans-serif;font-size:18px;color:var(--text);margin:0 0 8px;}
+.state-box p{font-size:13px;line-height:1.6;max-width:360px;margin:0 auto 20px;}
+.state-box .cta{background:var(--gold);color:#1A1306;border:none;border-radius:8px;padding:10px 20px;font-family:'Oswald',sans-serif;font-size:14px;cursor:pointer;letter-spacing:.04em;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div>
+      <p class="brand-eyebrow">Arizona Long Drive</p>
+      <h1>Live Tournament Bracket</h1>
+      <p class="subtitle">Single elimination · best of 3 sets per matchup</p>
+    </div>
+    <div class="topbar-right">
+      <div class="status-pill">
+        <span class="live-dot loading" id="dot"></span>
+        <span id="status-text">Connecting…</span>
+      </div>
+      <button class="settings-btn" id="settings-btn">⚙ Sheet</button>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab-btn active" data-fmt="longball">LongBall</button>
+    <button class="tab-btn" data-fmt="threeball">3Ball</button>
+  </div>
+
+  <div id="champion-banner"></div>
+  <div id="bracket-area"></div>
+
+</div>
+
+<!-- Setup Modal -->
+<div class="modal-overlay" id="modal" style="display:none;">
+  <div class="modal">
+    <h2>Connect Google Sheet</h2>
+    <p>Paste your Google Sheet ID below. The bracket will auto-refresh from your sheet every 30 seconds — no login required for viewers.</p>
+
+    <div class="step"><span class="step-num">1</span><span class="step-text">Create a Google Sheet using the AZLD template structure (3 tabs: <code>Players</code>, <code>LongBall</code>, <code>3Ball</code>).</span></div>
+    <div class="step"><span class="step-num">2</span><span class="step-text">Click <strong>Share</strong> → <strong>Anyone with the link</strong> → <strong>Viewer</strong>. Copy the link — the Sheet ID is the long string between <code>/d/</code> and <code>/edit</code>.</span></div>
+    <div class="step"><span class="step-num">3</span><span class="step-text">Paste the Sheet ID below and click Connect.</span></div>
+
+    <div class="error-msg" id="modal-error"></div>
+    <input class="modal-input" id="sheet-id-input" type="text" placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" spellcheck="false">
+    <p class="modal-hint">Found between /d/ and /edit in your Google Sheets URL</p>
+
+    <div class="modal-footer">
+      <button class="btn-secondary" id="modal-cancel">Cancel</button>
+      <button class="btn-primary" id="modal-connect">Connect Sheet</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+// ── fixed seedings (0-indexed): QF1=1v8, QF2=4v5, QF3=2v7, QF4=3v6
+var QF_PAIRS = [[0,7],[3,4],[1,6],[2,5]];
+var REFRESH_MS = 30000;
+var STORAGE_KEY = 'azld_sheet_id';
+
+var state = {
+  sheetId: '',
+  fmt: 'longball',
+  players: Array.from({length:8}, function(_,i){ return 'Seed '+(i+1); }),
+  data: { longball: null, threeball: null },
+  status: 'idle', // idle | loading | live | error
+  statusMsg: '',
+  lastUpdated: null,
+  countdown: 30
+};
+
+var refreshTimer = null;
+var countdownTimer = null;
+
+// ── sheet ID from URL param → localStorage → blank
+function loadSheetId(){
+  var p = new URLSearchParams(window.location.search);
+  var url = p.get('sheet') || p.get('sheetId') || '';
+  if(url){ localStorage.setItem(STORAGE_KEY, url); return url; }
+  return localStorage.getItem(STORAGE_KEY) || '';
+}
+
+// ── CSV fetch via gviz (CORS-friendly, needs "Anyone with link can view")
+function fetchCSV(sheetId, sheetName){
+  var url = 'https://docs.google.com/spreadsheets/d/'+sheetId
+    +'/gviz/tq?tqx=out:csv&sheet='+encodeURIComponent(sheetName);
+  return fetch(url).then(function(r){
+    if(!r.ok) throw new Error('HTTP '+r.status+' loading "'+sheetName+'"');
+    return r.text();
+  });
+}
+
+// ── robust CSV parser
+function parseCSV(text){
+  var lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(function(l){return l.trim();});
+  return lines.map(function(line){
+    var cols=[], i=0, cur='';
+    while(i<line.length){
+      if(line[i]==='"'){
+        i++;
+        while(i<line.length){
+          if(line[i]==='"' && line[i+1]==='"'){cur+='"';i+=2;}
+          else if(line[i]==='"'){i++;break;}
+          else cur+=line[i++];
+        }
+        if(line[i]===',') i++;
+      } else {
+        while(i<line.length && line[i]!==',') cur+=line[i++];
+        if(line[i]===',') i++;
+      }
+      cols.push(cur.trim()); cur='';
+    }
+    return cols;
+  });
+}
+
+function toNum(v){
+  if(!v || String(v).trim()==='') return null;
+  var n=parseFloat(String(v).replace(/,/g,''));
+  return isNaN(n)?null:n;
+}
+
+function row2sets(r){
+  if(!r) return {sets:[{a:null,b:null},{a:null,b:null},{a:null,b:null}]};
+  return {sets:[
+    {a:toNum(r[2]),b:toNum(r[3])},
+    {a:toNum(r[4]),b:toNum(r[5])},
+    {a:toNum(r[6]),b:toNum(r[7])}
+  ]};
+}
+
+function parseFmtData(rows){
+  var data=rows.slice(1);
+  return {
+    qf:   [0,1,2,3].map(function(i){return row2sets(data[i]);}),
+    sf:   [4,5].map(function(i){return row2sets(data[i]);}),
+    final:[row2sets(data[6])]
+  };
+}
+
+function resolveMatch(match,idxA,idxB){
+  var m=match||{sets:[{a:null,b:null},{a:null,b:null},{a:null,b:null}]};
+  var aWins=0,bWins=0;
+  if(idxA!==null && idxB!==null){
+    m.sets.forEach(function(s){
+      if(s.a!==null && s.b!==null){
+        if(s.a>s.b) aWins++;
+        else if(s.b>s.a) bWins++;
+      }
+    });
+  }
+  var decided=aWins>=2||bWins>=2;
+  var winner=aWins>=2?idxA:(bWins>=2?idxB:null);
+  return {idxA:idxA,idxB:idxB,aWins:aWins,bWins:bWins,sets:m.sets,decided:decided,winner:winner};
+}
+
+function resolveFmt(fmt){
+  if(!fmt) return null;
+  var qf=fmt.qf.map(function(m,i){return resolveMatch(m,QF_PAIRS[i][0],QF_PAIRS[i][1]);});
+  var sf=[
+    resolveMatch(fmt.sf[0],qf[0].winner,qf[1].winner),
+    resolveMatch(fmt.sf[1],qf[2].winner,qf[3].winner)
+  ];
+  var fin=resolveMatch(fmt.final[0],sf[0].winner,sf[1].winner);
+  return {qf:qf,sf:sf,final:fin};
+}
+
+function pname(idx){
+  if(idx===null||idx===undefined) return 'TBD';
+  return state.players[idx]||('Seed '+(idx+1));
+}
+
+// ── load data
+function loadData(){
+  if(!state.sheetId){ setStatus('idle','No sheet connected'); renderBracketArea(); return; }
+  setStatus('loading','Loading…');
+  Promise.all([
+    fetchCSV(state.sheetId,'Players'),
+    fetchCSV(state.sheetId,'LongBall'),
+    fetchCSV(state.sheetId,'3Ball')
+  ]).then(function(results){
+    var pRows=parseCSV(results[0]);
+    state.players=pRows.slice(1).slice(0,8).map(function(r,i){
+      return (r[1]||'').trim()||('Seed '+(i+1));
+    });
+    state.data.longball=parseFmtData(parseCSV(results[1]));
+    state.data.threeball=parseFmtData(parseCSV(results[2]));
+    state.lastUpdated=new Date();
+    state.countdown=30;
+    setStatus('live','');
+    renderBracketArea();
+    scheduleCountdown();
+  }).catch(function(err){
+    console.error(err);
+    setStatus('error',err.message||'Failed to load sheet');
+    renderBracketArea();
+  });
+}
+
+function scheduleRefresh(){
+  clearTimeout(refreshTimer);
+  refreshTimer=setTimeout(function(){loadData();},REFRESH_MS);
+}
+
+function scheduleCountdown(){
+  clearInterval(countdownTimer);
+  state.countdown=30;
+  countdownTimer=setInterval(function(){
+    state.countdown--;
+    if(state.countdown<=0){ clearInterval(countdownTimer); }
+    else { updateStatusText(); }
+  },1000);
+}
+
+function setStatus(s,msg){
+  state.status=s; state.statusMsg=msg||'';
+  updateStatusText();
+  var dot=document.getElementById('dot');
+  if(dot){
+    dot.className='live-dot';
+    if(s==='live') dot.classList.add('live');
+    else if(s==='error') dot.classList.add('error');
+    else if(s==='loading') dot.classList.add('loading');
+  }
+  if(s==='live'||s==='error') scheduleRefresh();
+}
+
+function updateStatusText(){
+  var el=document.getElementById('status-text');
+  if(!el) return;
+  if(state.status==='live'){
+    var t=state.lastUpdated?state.lastUpdated.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—';
+    el.textContent='Updated '+t+(state.countdown>0?' · refresh in '+state.countdown+'s':'');
+  } else if(state.status==='loading'){
+    el.textContent='Loading…';
+  } else if(state.status==='error'){
+    el.textContent='Error — retrying…';
+  } else {
+    el.textContent='No sheet connected';
+  }
+}
+
+// ── rendering
+function renderBracketArea(){
+  var area=document.getElementById('bracket-area');
+  area.innerHTML='';
+
+  if(state.status==='idle'||!state.sheetId){
+    area.innerHTML='<div class="state-box"><div class="icon">📊</div><h3>Connect a Google Sheet</h3><p>Click the ⚙ Sheet button above to connect your bracket to a live Google Sheet.</p><button class="cta" onclick="document.getElementById(\'settings-btn\').click()">Connect Sheet</button></div>';
+    renderChampionBanner(null);
+    return;
+  }
+  if(state.status==='error' && !state.data[state.fmt]){
+    area.innerHTML='<div class="state-box"><div class="icon">⚠️</div><h3>Could not load data</h3><p>'+escHtml(state.statusMsg)+'</p><p style="margin-top:8px">Make sure your sheet is shared as "Anyone with the link can view" and the tab names are exactly <code>Players</code>, <code>LongBall</code>, and <code>3Ball</code>.</p></div>';
+    renderChampionBanner(null);
+    return;
+  }
+
+  var fmt=state.data[state.fmt];
+  var resolved=resolveFmt(fmt);
+  renderChampionBanner(resolved);
+
+  var scroll=document.createElement('div'); scroll.className='bracket-scroll';
+  var wrap=document.createElement('div'); wrap.className='bracket-wrap'; wrap.id='bracket-wrap';
+  var svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('class','connectors'); svg.id='connector-svg';
+  wrap.appendChild(svg);
+
+  // QF column
+  var qfCol=makeRound('Quarterfinals');
+  resolved.qf.forEach(function(r,i){ qfCol.col.appendChild(buildMatch('m-qf-'+i,r)); });
+  wrap.appendChild(qfCol.wrap);
+
+  // SF column
+  var sfCol=makeRound('Semifinals');
+  sfCol.col.style.justifyContent='space-around';
+  resolved.sf.forEach(function(r,i){ sfCol.col.appendChild(buildMatch('m-sf-'+i,r)); });
+  wrap.appendChild(sfCol.wrap);
+
+  // Final column
+  var fCol=makeRound('Final');
+  fCol.col.style.justifyContent='center';
+  fCol.col.appendChild(buildMatch('m-final-0',resolved.final));
+  wrap.appendChild(fCol.wrap);
+
+  scroll.appendChild(wrap);
+  area.appendChild(scroll);
+
+  requestAnimationFrame(function(){drawConnectors(resolved);});
+}
+
+function makeRound(label){
+  var wrap=document.createElement('div'); wrap.className='round';
+  var lbl=document.createElement('p'); lbl.className='round-label'; lbl.textContent=label;
+  var col=document.createElement('div'); col.className='round-col';
+  wrap.appendChild(lbl); wrap.appendChild(col);
+  return {wrap:wrap,col:col};
+}
+
+function buildMatch(id,r){
+  var box=document.createElement('div');
+  box.className='match'+(r.decided?' decided':(r.idxA===null||r.idxB===null?' pending':''));
+  box.id=id;
+
+  function slot(idx,wins,isWinner){
+    var s=document.createElement('div');
+    s.className='slot'+(idx===null?' tbd':'')+(isWinner?' winner':'');
+    var info=document.createElement('div'); info.className='slot-info';
+    if(idx!==null){
+      var seed=document.createElement('span'); seed.className='slot-seed'; seed.textContent='#'+(idx+1);
+      info.appendChild(seed);
+    }
+    var nm=document.createElement('span'); nm.className='slot-name'; nm.textContent=pname(idx);
+    info.appendChild(nm);
+    var w=document.createElement('span'); w.className='slot-wins';
+    w.textContent=(idx!==null && (r.idxA!==null&&r.idxB!==null))?wins:'';
+    s.appendChild(info); s.appendChild(w);
+    return s;
+  }
+
+  box.appendChild(slot(r.idxA,r.aWins,r.decided&&r.winner===r.idxA));
+  box.appendChild(slot(r.idxB,r.bWins,r.decided&&r.winner===r.idxB));
+
+  var setsRow=document.createElement('div'); setsRow.className='sets-row';
+  r.sets.forEach(function(set,si){
+    var cell=document.createElement('div'); cell.className='set-cell';
+    var lbl=document.createElement('div'); lbl.className='set-label'; lbl.textContent='Set '+(si+1);
+    var sc=document.createElement('div');
+    var aWon=set.a!==null&&set.b!==null&&set.a>set.b;
+    var bWon=set.a!==null&&set.b!==null&&set.b>set.a;
+    sc.className='set-score'+(aWon?' a-wins':bWon?' b-wins':' no-data');
+    if(set.a===null&&set.b===null){
+      sc.textContent='— – —';
+    } else {
+      var sa=document.createElement('span'); sa.className='sa'; sa.textContent=set.a!==null?set.a:'—';
+      var sep=document.createElement('span'); sep.className='set-sep'; sep.textContent=' – ';
+      var sb=document.createElement('span'); sb.className='sb'; sb.textContent=set.b!==null?set.b:'—';
+      sc.appendChild(sa); sc.appendChild(sep); sc.appendChild(sb);
+    }
+    cell.appendChild(lbl); cell.appendChild(sc);
+    setsRow.appendChild(cell);
+  });
+  box.appendChild(setsRow);
+  return box;
+}
+
+function renderChampionBanner(resolved){
+  var holder=document.getElementById('champion-banner');
+  if(!holder) return;
+  holder.innerHTML='';
+  var banner=document.createElement('div');
+  if(resolved&&resolved.final&&resolved.final.decided){
+    banner.className='champion-banner';
+    var trophy=document.createElement('span'); trophy.className='champion-trophy'; trophy.textContent='🏆';
+    var txt=document.createElement('div');
+    var lbl=document.createElement('p'); lbl.className='champion-label';
+    lbl.textContent=(state.fmt==='longball'?'LongBall':'3Ball')+' Champion';
+    var nm=document.createElement('p'); nm.className='champion-name';
+    nm.textContent=pname(resolved.final.winner);
+    txt.appendChild(lbl); txt.appendChild(nm);
+    banner.appendChild(trophy); banner.appendChild(txt);
+  } else {
+    banner.className='champion-banner pending';
+    banner.innerHTML='<span class="champion-trophy" style="opacity:.4">🏆</span><div><p class="champion-label">Championship</p><p class="champion-name" style="font-size:14px;color:var(--text-muted);">In progress — champion not yet decided</p></div>';
+  }
+  holder.appendChild(banner);
+}
+
+function drawConnectors(resolved){
+  var wrap=document.getElementById('bracket-wrap');
+  var svg=document.getElementById('connector-svg');
+  if(!wrap||!svg) return;
+  var wRect=wrap.getBoundingClientRect();
+  svg.setAttribute('width',wrap.scrollWidth);
+  svg.setAttribute('height',wrap.scrollHeight);
+  svg.innerHTML='';
+  var pairs=[
+    {src:'m-qf-0',tgt:'m-sf-0',done:resolved&&resolved.qf[0]&&resolved.qf[0].decided},
+    {src:'m-qf-1',tgt:'m-sf-0',done:resolved&&resolved.qf[1]&&resolved.qf[1].decided},
+    {src:'m-qf-2',tgt:'m-sf-1',done:resolved&&resolved.qf[2]&&resolved.qf[2].decided},
+    {src:'m-qf-3',tgt:'m-sf-1',done:resolved&&resolved.qf[3]&&resolved.qf[3].decided},
+    {src:'m-sf-0',tgt:'m-final-0',done:resolved&&resolved.sf[0]&&resolved.sf[0].decided},
+    {src:'m-sf-1',tgt:'m-final-0',done:resolved&&resolved.sf[1]&&resolved.sf[1].decided}
+  ];
+  pairs.forEach(function(pair){
+    var src=document.getElementById(pair.src), tgt=document.getElementById(pair.tgt);
+    if(!src||!tgt) return;
+    var sR=src.getBoundingClientRect(), tR=tgt.getBoundingClientRect();
+    var x1=sR.right-wRect.left, y1=sR.top+sR.height/2-wRect.top;
+    var x2=tR.left-wRect.left, y2=tR.top+tR.height/2-wRect.top;
+    var mx=(x1+x2)/2;
+    var path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d','M '+x1+' '+y1+' C '+mx+' '+y1+', '+mx+' '+y2+', '+x2+' '+y2);
+    path.setAttribute('class','connector-path'+(pair.done?' done':''));
+    svg.appendChild(path);
+  });
+}
+
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── modal
+function openModal(){
+  document.getElementById('sheet-id-input').value=state.sheetId||'';
+  document.getElementById('modal-error').style.display='none';
+  document.getElementById('modal').style.display='flex';
+}
+function closeModal(){ document.getElementById('modal').style.display='none'; }
+
+document.getElementById('settings-btn').addEventListener('click',openModal);
+document.getElementById('modal-cancel').addEventListener('click',closeModal);
+document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+document.getElementById('modal-connect').addEventListener('click',function(){
+  var val=document.getElementById('sheet-id-input').value.trim();
+  // try to extract ID from a full URL if pasted
+  var m=val.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
+  if(m) val=m[1];
+  if(!val){
+    var errEl=document.getElementById('modal-error');
+    errEl.textContent='Please paste your Sheet ID or URL.';
+    errEl.style.display='block';
+    return;
+  }
+  localStorage.setItem(STORAGE_KEY,val);
+  state.sheetId=val;
+  closeModal();
+  loadData();
+});
+
+// ── tabs
+document.getElementById('tabs').addEventListener('click',function(e){
+  var btn=e.target.closest('.tab-btn');
+  if(!btn) return;
+  state.fmt=btn.getAttribute('data-fmt');
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.toggle('active',b===btn);});
+  renderBracketArea();
+});
+
+window.addEventListener('resize',function(){
+  if(state.data[state.fmt]) renderBracketArea();
+});
+
+// ── init
+state.sheetId=loadSheetId();
+loadData();
+
+})();
+</script>
+</body>
+</html>
